@@ -1,1 +1,1 @@
-# ht-app
+Health Tracker — private loader page.

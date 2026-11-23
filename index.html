@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Health Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f4e79">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  body { font-family: -apple-system, Roboto, Segoe UI, Arial, sans-serif; background: #f3f6fa; margin: 0;
+         display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .box { background: #fff; padding: 24px; border-radius: 14px; max-width: 340px; width: 88%; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  h2 { margin: 0 0 8px; color: #1f4e79; }
+  p { color: #555; }
+  input, button { width: 100%; font-size: 17px; padding: 12px; margin-top: 10px; border-radius: 10px; border: 1px solid #cbd5e1; box-sizing: border-box; }
+  button { background: #2e75b6; color: #fff; border: 0; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>Health Tracker</h2>
+  <p id="msg">Loading…</p>
+  <div id="keyForm" style="display:none">
+    <input id="key" placeholder="Access key" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button id="keyBtn">Continue</button>
+  </div>
+</div>
+<script>
+/* Loader: the app itself is private and is fetched from the owner's Apps Script
+   only after a valid access key is given. No personal data lives in this file. */
+(function () {
+  var API_URL = 'https://script.google.com/macros/s/AKfycbywjLVr7XgeIVbbnb8pNUbNsm_g3SiOg0kvVm3QdxzTV6vj52PtCrYYQPI4SQRFjS91/exec';
+  var LS_KEY = 'ht_key', LS_UI = 'ht_ui';
+  function ls(k, v) {
+    try {
+      if (v === undefined) return localStorage.getItem(k);
+      if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v);
+    } catch (e) { return null; }
+  }
+  // One-time setup link: ...#k=KEY  (the part after # is never sent to any server)
+  var m = location.hash.match(/k=([\w-]+)/);
+  if (m) { ls(LS_KEY, m[1]); history.replaceState(null, '', location.pathname); }
+
+  function msg(t) { document.getElementById('msg').textContent = t; }
+  function ask(t) { msg(t); document.getElementById('keyForm').style.display = 'block'; }
+  function render(html, key) {
+    html = html.replace("const API_URL = '';", 'const API_URL = ' + JSON.stringify(API_URL) + ';')
+               .replace("const API_TOKEN = '';", 'const API_TOKEN = ' + JSON.stringify(key) + ';');
+    document.open(); document.write(html); document.close();
+  }
+  function start() {
+    var key = ls(LS_KEY);
+    if (!key) { ask('Enter your access key (one time only).'); return; }
+    fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                     body: JSON.stringify({ token: key, action: 'ui' }) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.ok) {
+          if (/Unauthorised/.test(j.error || '')) { ls(LS_KEY, null); ask('That key did not work. Please enter it again.'); return; }
+          throw new Error(j.error || 'Server error');
+        }
+        ls(LS_UI, j.html); render(j.html, key);
+      })
+      .catch(function (e) {
+        var cached = ls(LS_UI);
+        if (cached) render(cached, key);
+        else msg('Cannot reach the server (' + e.message + '). Check your connection and reopen.');
+      });
+  }
+  document.getElementById('keyBtn').onclick = function () {
+    var v = document.getElementById('key').value.trim();
+    if (!v) return;
+    ls(LS_KEY, v); document.getElementById('keyForm').style.display = 'none'; msg('Loading…'); start();
+  };
+  start();
+})();
+</script>
+</body>
+</html>
